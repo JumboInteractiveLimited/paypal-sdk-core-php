@@ -1,5 +1,9 @@
 <?php
+
 namespace PayPal\Core;
+
+use PayPal\Log\PayPalLogFactory;
+use Psr\Log\LoggerInterface;
 
 /**
  * Simple Logging Manager.
@@ -8,75 +12,108 @@ namespace PayPal\Core;
  */
 class PPLoggingManager
 {
+    /**
+     * @var array of logging manager instances with class name as key
+     */
+    private static $instances = array();
 
-    // Default Logging Level
-    const DEFAULT_LOGGING_LEVEL = 0;
+    /**
+     * The logger to be used for all messages
+     *
+     * @var LoggerInterface
+     */
+    private $logger;
 
-    // Logger name
+    /**
+     * Logger Name
+     *
+     * @var string
+     */
     private $loggerName;
 
-    // Log enabled
-    private $isLoggingEnabled;
-
-    // Configured logging level
-    private $loggingLevel;
-
-    // Configured logging file
-    private $loggerFile;
-    
-    //log message
-    private $loggerMessage;
-    public function __construct($loggerName, $config = null)
+    /**
+     * Returns the singleton object
+     *
+     * @param string $loggerName
+     * @return $this
+     */
+    public static function getInstance($loggerName = __CLASS__)
     {
+        if (array_key_exists($loggerName, PPLoggingManager::$instances)) {
+            return PPLoggingManager::$instances[$loggerName];
+        }
+        $instance = new self($loggerName);
+        PPLoggingManager::$instances[$loggerName] = $instance;
+        return $instance;
+    }
+
+    /**
+     * Default Constructor
+     *
+     * @param string $loggerName Generally represents the class name.
+     */
+    public function __construct($loggerName)
+    {
+        $config = PPConfigManager::getInstance()->getConfigHashmap();
+        // Checks if custom factory defined, and is it an implementation of @PPLogFactory
+        $factory = array_key_exists('log.AdapterFactory', $config) && in_array('PayPal\Log\PPLogFactory', class_implements($config['log.AdapterFactory'])) ? $config['log.AdapterFactory'] : '\PayPal\Log\PPDefaultLogFactory';
+        /** @var PPLogFactory $factoryInstance */
+        $factoryInstance = new $factory();
+        $this->logger = $factoryInstance->getLogger($loggerName);
         $this->loggerName = $loggerName;
-        $config           = PPConfigManager::getConfigWithDefaults($config);
-
-        $this->isLoggingEnabled = (array_key_exists('log.LogEnabled', $config) && $config['log.LogEnabled'] == '1');
-
-        if ($this->isLoggingEnabled) {
-            $this->loggerFile   = ($config['log.FileName']) ? $config['log.FileName'] : ini_get('error_log');
-            $loggingLevel       = strtoupper($config['log.LogLevel']);
-            $this->loggingLevel = (isset($loggingLevel) && defined(__NAMESPACE__ . "\\PPLoggingLevel::$loggingLevel")) ? constant(__NAMESPACE__ . "\\PPLoggingLevel::$loggingLevel") : PPLoggingManager::DEFAULT_LOGGING_LEVEL;
-        }
     }
 
-    public function __destruct()
-    {
-        $this->flush();
-    }
- 
-    public function flush()
-    {
-        if($this->loggerMessage) {
-            error_log($this->loggerMessage, 3, $this->loggerFile);
-        }
-    }
-
-    private function log($message, $level = PPLoggingLevel::INFO)
-    {
-        if ($this->isLoggingEnabled && ($level <= $this->loggingLevel)) {
-            $this->loggerMessage .= $this->loggerName . ": $message\n";
-        }
-    }
-
+    /**
+     * Log Error
+     *
+     * @param string $message
+     */
     public function error($message)
     {
-        $this->log($message, PPLoggingLevel::ERROR);
+        $this->logger->error($message);
     }
 
+    /**
+     * Log Warning
+     *
+     * @param string $message
+     */
     public function warning($message)
     {
-        $this->log($message, PPLoggingLevel::WARN);
+        $this->logger->warning($message);
     }
 
+    /**
+     * Log Info
+     *
+     * @param string $message
+     */
     public function info($message)
     {
-        $this->log($message, PPLoggingLevel::INFO);
+        $this->logger->info($message);
     }
 
+    /**
+     * Log Fine
+     *
+     * @param string $message
+     */
     public function fine($message)
     {
-        $this->log($message, PPLoggingLevel::FINE);
+        $this->info($message);
     }
 
+    /**
+     * Log Debug
+     *
+     * @param string $message
+     */
+    public function debug($message)
+    {
+        $config = PPConfigManager::getInstance()->getConfigHashmap();
+        // Disable debug in live mode.
+        if (array_key_exists('mode', $config) && $config['mode'] != 'live') {
+            $this->logger->debug($message);
+        }
+    }
 }
