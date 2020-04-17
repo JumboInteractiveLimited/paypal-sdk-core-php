@@ -81,7 +81,9 @@ class PPIPNMessage
             return $this->isIpnVerified;
         } else {
             $request = self::IPN_CMD;
-            if (function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc() == 1) {
+            $is_php_7_or_above = defined("PHP_MAJOR_VERSION") && PHP_MAJOR_VERSION >= 7;
+
+            if (!$is_php_7_or_above && function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc() == 1) {
                 $get_magic_quotes_exists = true;
             } else {
                 $get_magic_quotes_exists = false;
