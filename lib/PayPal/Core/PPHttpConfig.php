@@ -212,12 +212,9 @@ class PPHttpConfig
     /**
      * Retrieves an array of constant key, and value based on Prefix
      *
-     * @param array $configs
-     * @param       $prefix
-     *
      * @return array
      */
-    public function getHttpConstantsFromConfigs($configs = array(), $prefix)
+    private function getHttpConstantsFromConfigs(array $configs, $prefix)
     {
         $arr = array();
         if ($prefix != null && is_array($configs)) {
